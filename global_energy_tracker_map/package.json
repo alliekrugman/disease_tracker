@@ -1,0 +1,22 @@
+{
+  "name": "global_energy_tracker_map",
+  "private": true,
+  "version": "1.0.0",
+  "description": "data visualization",
+  "main": "index.js",
+  "scripts": "",
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "choices.js": "^10.1.0",
+    "d3": "^5.16.0",
+    "d3-geo-projection": "^4.0.0",
+    "d3-geo-scale-bar": "^1.2.5",
+    "d3-svg-annotation": "^2.5.1",
+    "d3-svg-legend": "^2.25.6",
+    "jquery": "^2.2.4",
+    "jquery-ui-touch-punch": "^0.2.3",
+    "topojson-client": "^3.1.0",
+    "webpack-jquery-ui": "^2.0.1"
+  }
+}
