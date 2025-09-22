@@ -16,7 +16,7 @@ require('webpack-jquery-ui') //slider?
 require('jquery-ui-touch-punch') // touch support
 
 var realtimeData = require('./data/realtime.csv');
-var historicalData = require('./data/historical.csv');
+var historicalData = require('./data/combined_data.csv');
 
 let historicalSliderValues = [...new Set(
   historicalData.map(d => +d.year)
@@ -114,8 +114,20 @@ let graphic = `
 `
 document.querySelector(`#${project}`).innerHTML = graphic
 
-let typeList = ['Total', 'Measles', 'Mumps', 'Polio', 'Whooping Cough', 'Respiratory Syncytial Virus', 'Diphtheria', 'Chicken Pox', 'Hepatitis A', 'Hepatitis B']
+const state = {
+  selectedMapType: 'realtime',
+  selectedDisease: 'total',
+  selectedDate: '2021',
+  selectedFilters: []
+};
 
+// Pre-calculate max values by disease for consistent scaling
+// Single max for all historical data
+const historicalOverallMax = d3.max(historicalData, d => +d.cases);
+
+let typeList = state.selectedMapType === 'historical' 
+  ? ['Measles', 'Mumps', 'Polio', 'Whooping Cough']
+  : ['Total', 'Measles', 'Mumps', 'Polio', 'Whooping Cough', 'Respiratory Syncytial Virus', 'Diphtheria', 'Chicken Pox', 'Hepatitis A', 'Hepatitis B'];
 let dropdown1 = document.querySelector(`#${project} .v-legend-medium-container select#disease-select`);
 let dropdown2 = document.querySelector(`#${project} .v-legend-medium-container select#type-select`);
 
@@ -165,8 +177,8 @@ const mtooltip = d3.select(`#v-${project}`)
         .style("pointer-events", "all")
         .style('display', 'none')
         .attr('class', 'mtooltip v-tooltip v-annotation').raise()
-let height = (1024 * 535) / 1152
-// let margin = ({ top: 20, bottom: 55, left: 40, right: 10})
+
+let height = (1024 * 535) / 1152 
 let width = 1024
 let projection = d3.geoMiller().fitExtent([[0, 0],[width, height]], extent)
 let path = d3.geoPath(projection)
@@ -237,7 +249,7 @@ const svg = d3.select(`#v-${project}`).append('svg')
   .attr('preserveAspectRatio', 'xMinYMin meet')
   //.on('wheel.zoom', null)
   //.on('dblclick.zoom', null);
-  
+
 let group = svg.append('g')
 
  countryFill = group.append('g')
@@ -274,21 +286,30 @@ group.append('g')
  .attr('stroke-linejoin', 'round')
  .attr('d', path);
 
-const minR = 4;
 var radiusScale = d3.scaleSqrt()
   .domain([0, d3.max(realtimeData, d => +d.cases)])
-  .range([0, 35]); 
+  .range([0, 50]); 
   
 var diseaseColor = d3.scaleOrdinal()
-  .domain(['Measles', 'mumps', 'rubella', 'polio', 'whooping cough'])
-  .range(['#04284A', '#F56647','#dbb9e6','#c6ddf4','#efd952']);
+  .domain(['Measles', 'Mumps', 'Chicken Pox', 'Polio', 'Whooping Cough', 'RSV', 'Diptheria', 'Hepatitis A', "Hepatitis B"])
+  .range(['#F56647',  // red/orange
+  '#efd952',  // yellow
+  '#0C3F42',  // dark green
+  '#04284A',  // dark blue
+  '#c6ddf4',  // sky blue
+  '#F2F5F7',  // very light blue
+  '#7A8CA0',  // lighter blue/indigo
+  '#E1DCD6',   // neutral/light gray-beige
+  '#dbb9e6'  // violet/lavender
+  ]);
 
-const state = {
-  selectedMapType: 'realtime',
-  selectedDisease: 'total',
-  selectedDate: '2021',
-  selectedFilters: []
-};
+svg.append('image')
+.attr("href", "../../global_energy_tracker_map/tgh_logo.png")
+.attr('x', width - 120) // Adjust based on logo width
+.attr('y', height - 60) // Adjust based on logo height  
+.attr('width', 100) // Adjust to your logo size
+.attr('height', 40) // Adjust to your logo size
+.style('pointer-events', 'none');
 
 state.selectedMapType = 'realtime';
 state.selectedDisease = 'Total';
@@ -298,7 +319,6 @@ var symbolLayer = group.append('g')
 
 function updateMap() {
     console.log('updateMap called - Mode:', state.selectedMapType, 'Disease:', state.selectedDisease, 'Date:', state.selectedDate);
-    
     // Remove all circles first
     symbolLayer.selectAll('circle').remove();
     
@@ -310,7 +330,6 @@ function updateMap() {
       .on('mousemove', null);
     
     if (state.selectedMapType === 'realtime') {
-      console.log('Setting up realtime mode...');
       
       let allData = realtimeData.filter(d =>
         getMonthFormatted(d.date) === state.selectedDate
@@ -325,9 +344,12 @@ function updateMap() {
         d.lng && d.lat && !isNaN(+d.lng) && !isNaN(+d.lat)
       );
 
+      validCoords.sort((a, b) => (+b.cases) - (+a.cases));
+
       let stickyTooltip = null;
 
       symbolLayer.selectAll('circle')
+     
   .data(validCoords)
   .enter()
   .append('circle')
@@ -336,7 +358,7 @@ function updateMap() {
     return coords[0];
   })
   .attr('cy', d => projection([+d.lng, +d.lat])[1])
-  .attr("r", d => radiusScale(+d.cases) + minR)
+  .attr("r", d => radiusScale(+d.cases))
   .attr('fill', d => diseaseColor(d.diseases.toLowerCase()))
   .attr('fill-opacity', 0.7)
   .attr('stroke', '#333')
@@ -345,7 +367,6 @@ function updateMap() {
     if (stickyTooltip === this) return;
     
     d3.select(this)
-      .raise() 
       .transition()
       .duration(100)
       .attr('stroke', '#000')                
@@ -523,50 +544,6 @@ d3.select('body').on('click', function() {
     stickyTooltip = null;
   }
 });
-      /*
-      // Add circles for realtime data
-      symbolLayer.selectAll('circle')
-        .data(validCoords)
-        .enter()
-        .append('circle')
-        .attr('cx', d => {
-          const coords = projection([+d.lng, +d.lat]);
-          return coords[0];
-        })
-        .attr('cy', d => projection([+d.lng, +d.lat])[1])
-        .attr("r", d => radiusScale(+d.cases) + minR)
-        .attr('fill', d => diseaseColor(d.diseases.toLowerCase()))
-        .attr('fill-opacity', 0.7)
-        .attr('stroke', '#333')
-        .attr('stroke-width', 0)
-        .on('mouseover', function(d) {
-          d3.select(this)
-            .raise() 
-            .transition()
-            .duration(100)
-            .attr('stroke', '#000')                
-            .attr('stroke-width', 1);
-
-          const tooltipHTML = `<div class="font-lb" style="color:#4B535D;padding-bottom:5px">
-              ${d.place_name}</div><br><div>Disease: ${d.diseases}<br><br>Cases: ${d.cases}<br><br><a href="${d.link}">Read more:</a> ${d.summary}</div>`;
-
-          mtooltip
-            .html(tooltipHTML)
-            .style('position', 'absolute')
-            .style('display', 'inline-block');
-
-          handleMouseMove(d);
-        })
-        .on('mouseout', function(d) {
-          d3.select(this).classed('highlight', false)
-            .transition()
-            .duration(100)
-            .attr('stroke', '#333')
-            .attr('stroke-width', 0);
-          
-          mtooltip.style('display', 'none');
-        })
-        .on('mousemove', handleMouseMove);*/
         
       } else if (state.selectedMapType === 'historical') {
         console.log('Setting up historical mode...');
@@ -579,12 +556,17 @@ d3.select('body').on('click', function() {
         }
         
         if (filtered.length > 0) {
-          const maxCases = d3.max(filtered, d => +d.cases);
+          // FIXED: Use disease-specific max instead of year-specific max
+
+          // Use single scale for all historical diseases
+          const maxCases = historicalOverallMax;
           
+          if (maxCases === 0) return; // don’t draw legend or bubbles
+
           // Create radius scale for historical data (yearly cases are typically larger)
           const historicalRadiusScale = d3.scaleSqrt()
             .domain([0, maxCases])
-            .range([2, 60]); // Larger max radius and minimum radius for better visibility
+            .range([0, 25]); // Larger max radius and minimum radius for better visibility
           
           // Create lookup for country centroids (you'll need to add country center coordinates)
           const countryCentroids = {
@@ -833,7 +815,6 @@ d3.select('body').on('click', function() {
             'LI': [9.5215, 47.1662], // Liechtenstein
             'AD': [1.5218, 42.5063], // Andorra
           };
-          
           // Add circles for historical data
           symbolLayer.selectAll('circle')
             .data(filtered.filter(d => countryCentroids[d.iso]))
@@ -848,18 +829,11 @@ d3.select('body').on('click', function() {
               return coords[1];
             })
             .attr('r', d => historicalRadiusScale(+d.cases))
-            .attr('fill', '#04284A')
+            .attr('fill', d => diseaseColor(d.disease.toLowerCase()))
             .attr('fill-opacity', 0.7)
             .attr('stroke', '#333')
             .attr('stroke-width', .5)
             .on('mouseover', function(d) {
-              d3.select(this)
-                .raise() 
-                .transition()
-                .duration(100)
-                .attr('stroke', '#000')                
-                .attr('stroke-width', 1);
-      
               const countryName = countryLookup[d.iso] || d.iso;
               const tooltipHTML = `<div class="font-lb" style="color:#4B535D;padding-bottom:5px">
                   ${countryName}</div><br><div>Disease: ${d.disease}<br><br>Cases: ${(+d.cases).toLocaleString()}<br><br>Year: ${d.year}</div>`;
@@ -883,65 +857,7 @@ d3.select('body').on('click', function() {
             .on('mousemove', handleMouseMove);
         }
       }
-    }
-
-    function renderLayeredBubbles(symbolLayer, filtered, countryCentroids, projection, historicalRadiusScale, countryLookup, mtooltip, handleMouseMove) {
-      const validData = filtered.filter(d => countryCentroids[d.iso]);
-      
-      // Sort by cases (largest first for back-to-front rendering)
-      const sortedData = validData.sort((a, b) => (+b.cases) - (+a.cases));
-      
-      const circles = symbolLayer.selectAll('circle')
-        .data(sortedData, d => d.iso) // Use key function for stable updates
-        .enter()
-        .append('circle')
-        .style('z-index', 1000)
-        .attr('cx', d => {
-          const coords = projection(countryCentroids[d.iso]);
-          return coords[0];
-        })
-        .attr('cy', d => {
-          const coords = projection(countryCentroids[d.iso]);
-          return coords[1];
-        })
-        .attr('r', d => historicalRadiusScale(+d.cases))
-        .attr('fill', '#04284A')
-        .attr('fill-opacity', 0.7)
-        .attr('stroke', '#333')
-        .attr('stroke-width', 0.5)
-        .style('cursor', 'pointer')
-        .on('mouseover', function(event, d) {
-          // Bring hovered bubble to front
-          d3.select(this)
-            .raise() // This moves the element to the end (front)
-            .transition()
-            .duration(100)
-            .attr('stroke', '#000')
-            .attr('stroke-width', 2)
-            .attr('fill-opacity', 0.9);
-    
-          const countryName = countryLookup[d.iso] || d.iso;
-          const tooltipHTML = `<div class="font-lb" style="color:#4B535D;padding-bottom:5px">
-              ${countryName}</div><br><div>Disease: ${d.disease}<br><br>Cases: ${(+d.cases).toLocaleString()}<br><br>Year: ${d.year}</div>`;
-    
-          mtooltip
-            .html(tooltipHTML)
-            .style('position', 'absolute')
-            .style('display', 'inline-block');
-    
-          handleMouseMove(event, d);
-        })
-        .on('mouseout', function(event, d) {
-          d3.select(this)
-            .transition()
-            .duration(100)
-            .attr('stroke', '#333')
-            .attr('stroke-width', 0.5)
-            .attr('fill-opacity', 0.7);
-          
-          mtooltip.style('display', 'none');
-        })
-        .on('mousemove', handleMouseMove);
+      makeLegend();
     }
 
 //tooltips
@@ -1139,67 +1055,146 @@ function makeSlider() {
 }
 
 //legend
-
+/*
 function makeLegend() {
   const padding = 15;
-  const valuesToShow = [1000, 100, 10];
-  const circleX = padding + 30;
-  const baselineY = 100;
+  const legendPadding = 20;
 
   svgLegend.select('#legend').remove();
   
   const legend = svgLegend.append('g').attr('id', 'legend');
-
-  const legendWidth = 150;
-  const legendHeight = 100;
-  const legendPadding = 20;
-  
-  legend.attr('transform', `translate(${legendPadding}, ${height - legendHeight - legendPadding})`);   
+  legend.attr('transform', `translate(${legendPadding}, ${height - 180 - legendPadding})`);   
 
   if (state.selectedMapType === 'realtime') {
-    legend
-      .append('text')
-      .attr('x', 30)
-      .attr('y', 13)
-      .style('font-weight', 'bold')
-      .style('font-size', '12px')
-      .text('Cases');
-
-    valuesToShow.forEach((val, i) => {
-      const r = radiusScale(val);
-      const cy = baselineY - r;
-
-      legend.append('circle')
-        .attr('cx', circleX)
-        .attr('cy', cy)
-        .attr('r', r)
-        .attr('fill', '#999')
-        .attr('fill-opacity', 0)
-        .attr('stroke', '#333');
-
-      legend.append('line')
-        .attr('x1', circleX + r)
-        .attr('x2', circleX + 40)
-        .attr('y1', cy)
-        .attr('y2', cy)
-        .attr('stroke', '#333')
-        .attr('stroke-dasharray', '2,2');
-
-      legend.append('text')
-        .attr('x', circleX + 45)
-        .attr('y', cy + 4)
-        .style('font-size', '11px')
-        .text(val.toLocaleString());
-    });
-
-  } else if (state.selectedMapType === 'historical') {
+    // COLOR LEGEND - Datawrapper style
+    let colorLegendY = 0;
+    
     legend
       .append('text')
       .attr('x', 25)
-      .attr('y', 13)
+      .attr('y', colorLegendY - 75)
       .style('font-weight', 'bold')
       .style('font-size', '12px')
-      .text('Historical Cases');
+      .text('Disease');
+
+    const diseases = ['Chicken Pox', 'Diptheria', 'Hepatitis A', 'Hepatitis B', 'Measles', 'Mumps', 'Polio', 'RSV', 'Whooping Cough'];
+    const diseaseLabels = {
+      'Chicken Pox': 'Chicken Pox',
+      'Diptheria': 'Diptheria',
+      'Hepatitis A': 'Hepatitis A',
+      'Hepatitis B': 'Hepatitis B',
+      'Measles': 'Measles',
+      'Mumps': 'Mumps',
+      'Polio': 'Polio',
+      'RSV': 'RSV',
+      'Whooping Cough': 'Whooping Cough'
+
+    };
+
+    diseases.forEach((disease, i) => {
+      const yPos = colorLegendY - 60 + (i * 18);
+      
+      // Color circle
+      legend.append('circle')
+        .attr('cx', 30)
+        .attr('cy', yPos)
+        .attr('r', 6)
+        .attr('fill', diseaseColor(disease.toLowerCase()))
+        .attr('fill-opacity', 0.7)
+        .attr('stroke', '#333')
+        .attr('stroke-width', 0.5);
+      
+      // Label
+      legend.append('text')
+        .attr('x', 42)
+        .attr('y', yPos + 4)
+        .style('font-size', '11px')
+        .text(diseaseLabels[disease]);
+    });
+
+    // SIZE LEGEND - Better scaling
+    const sizeLegendY = colorLegendY + 120;
+    
+    legend
+      .append('text')
+      .attr('x', 25)
+      .attr('y', sizeLegendY)
+      .style('font-weight', 'bold')
+      .style('font-size', '12px')
+      .text('Outbreak Size');
+
+    // Use more visible sizes
+    const valuesToShow = [100];
+    const scaleFactor = 3; // Make bubbles 50% larger in legend for visibility
+    
+    valuesToShow.forEach((val, i) => {
+      const r = radiusScale(val) * scaleFactor;
+      const cy = sizeLegendY + 50 - r; // Stack from bottom
+      const cx = 37;
+
+      legend.append('circle')
+        .attr('cx', cx)
+        .attr('cy', cy)
+        .attr('r', r)
+        .attr('fill', '#999')
+        .attr('fill-opacity', 0.3)
+        .attr('stroke', '#333')
+        .attr('stroke-width', 0.5);
+
+      legend.append('line')
+        .attr('x1', cx + r)
+        .attr('x2', cx + 35)
+        .attr('y1', cy)
+        .attr('y2', cy)
+        .attr('stroke', '#333')
+        .attr('stroke-width', 0.5)
+        .attr('stroke-dasharray', '2,2');
+
+      legend.append('text')
+        .attr('x', cx + 40)
+        .attr('y', cy + 4)
+        .style('font-size', '11px')
+        .text(val === 10 ? '10 cases' : val + ' cases');
+    });
+
+  } 
+  else if (state.selectedMapType === 'historical') {
+    legend
+      .append('text')
+      .attr('x', 25)
+      .attr('y', 0)
+      .style('font-weight', 'bold')
+      .style('font-size', '12px')
+      .text('Disease Type');
+
+    const historicalDiseases = ['Measles', 'Mumps', 'Polio', 'Whooping Cough'];
+    
+    historicalDiseases.forEach((disease, i) => {
+      const yPos = 20 + (i * 18);
+      
+      legend.append('circle')
+        .attr('cx', 30)
+        .attr('cy', yPos)
+        .attr('r', 6)
+        .attr('fill', diseaseColor(disease.toLowerCase()))
+        .attr('fill-opacity', 0.7)
+        .attr('stroke', '#333')
+        .attr('stroke-width', 0.5);
+      
+      legend.append('text')
+        .attr('x', 42)
+        .attr('y', yPos + 4)
+        .style('font-size', '11px')
+        .text(disease);
+    });
+
+    legend
+      .append('text')
+      .attr('x', 25)
+      .attr('y', 100)
+      .style('font-weight', 'bold')
+      .style('font-size', '12px')
+      .text('Annual Cases');
 
     let filtered = historicalData.filter(d => +d.year === +state.selectedDate);
     if (state.selectedDisease !== 'Total') {
@@ -1208,51 +1203,424 @@ function makeLegend() {
 
     if (filtered.length > 0) {
       const maxCases = d3.max(filtered, d => +d.cases);
+      const minCases = d3.min(filtered, d => +d.cases);
       
-      const legendHeight = 15;
-      const legendWidth = 100;
+      // Show three representative bubble sizes
+      const valuesToShow = [
+        maxCases,
+        maxCases / 2,
+        maxCases / 10
+      ];
+      
+      valuesToShow.forEach((val, i) => {
+        const r = historicalRadiusScale(val);
+        const cy = 160;
+        const cx = 45;
 
-      // Create gradient definition
-      const defs = legend.append('defs');
-      const gradient = defs.append('linearGradient')
-        .attr('id', 'legend-gradient')
-        .attr('x1', '0%').attr('y1', '0%')
-        .attr('x2', '100%').attr('y2', '0%');
+        legend.append('circle')
+          .attr('cx', cx)
+          .attr('cy', cy)
+          .attr('r', r)
+          .attr('fill', '#999')
+          .attr('fill-opacity', 0.3)
+          .attr('stroke', '#333')
+          .attr('stroke-width', 0.5);
 
-      gradient.append('stop')
-        .attr('offset', '0%')
-        .attr('stop-color', '#fff5f0');
+        legend.append('line')
+          .attr('x1', cx + r)
+          .attr('x2', cx + 35)
+          .attr('y1', cy)
+          .attr('y2', cy)
+          .attr('stroke', '#333')
+          .attr('stroke-width', 0.5)
+          .attr('stroke-dasharray', '2,2');
 
-      gradient.append('stop')
-        .attr('offset', '100%')
-        .attr('stop-color', '#cb181d');
-
-      // Add gradient rectangle
-      legend.append('rect')
-        .attr('x', 25)
-        .attr('y', 25)
-        .attr('width', legendWidth)
-        .attr('height', legendHeight)
-        .style('fill', 'url(#legend-gradient)')
-        .attr('stroke', '#333')
-        .attr('stroke-width', 0.5);
-
-      // Add labels
-      legend.append('text')
-        .attr('x', 25)
-        .attr('y', 55)
-        .style('font-size', '10px')
-        .text('0');
-
-      legend.append('text')
-        .attr('x', 25 + legendWidth)
-        .attr('y', 55)
-        .style('font-size', '10px')
-        .style('text-anchor', 'end')
-        .text(maxCases.toLocaleString());
+        legend.append('text')
+          .attr('x', cx + 40)
+          .attr('y', cy + 4)
+          .style('font-size', '11px')
+          .text(val.toLocaleString());
+      });
     }
   }
+}*/
+/*
+function makeLegend() {
+  const padding = 15;
+  const legendPadding = 20;
+
+  // Clear any existing legend
+  svgLegend.select('#legend').remove();
+
+  const legend = svgLegend.append('g').attr('id', 'legend');
+  legend.attr('transform', `translate(${legendPadding}, ${height - 180 - legendPadding})`);
+
+  // --- REALTIME LEGEND ---
+  if (state.selectedMapType === 'realtime') {
+      // COLOR LEGEND
+      let colorLegendY = 0;
+
+      legend.append('text')
+          .attr('x', 25)
+          .attr('y', colorLegendY - 75)
+          .style('font-weight', 'bold')
+          .style('font-size', '12px')
+          .text('Disease');
+
+      const diseases = ['Chicken Pox', 'Diphtheria', 'Hepatitis A', 'Hepatitis B', 'Measles', 'Mumps', 'Polio', 'RSV', 'Whooping Cough'];
+      const diseaseLabels = {
+          'Chicken Pox': 'Chicken Pox',
+          'Diphtheria': 'Diphtheria',
+          'Hepatitis A': 'Hepatitis A',
+          'Hepatitis B': 'Hepatitis B',
+          'Measles': 'Measles',
+          'Mumps': 'Mumps',
+          'Polio': 'Polio',
+          'RSV': 'RSV',
+          'Whooping Cough': 'Whooping Cough'
+      };
+
+      diseases.forEach((disease, i) => {
+          const yPos = colorLegendY - 60 + (i * 18);
+
+          legend.append('circle')
+              .attr('cx', 30)
+              .attr('cy', yPos)
+              .attr('r', 6)
+              .attr('fill', diseaseColor(disease.toLowerCase()))
+              .attr('fill-opacity', 0.7)
+              .attr('stroke', '#333')
+              .attr('stroke-width', 0.5);
+
+          legend.append('text')
+              .attr('x', 42)
+              .attr('y', yPos + 4)
+              .style('font-size', '11px')
+              .text(diseaseLabels[disease]);
+      });
+
+      // SIZE LEGEND
+      const sizeLegendY = colorLegendY + 120;
+
+      legend.append('text')
+          .attr('x', 25)
+          .attr('y', sizeLegendY)
+          .style('font-weight', 'bold')
+          .style('font-size', '12px')
+          .text('Outbreak Size');
+
+      const valuesToShow = [10, 100, 1000];
+      const scaleFactor = 1.2;
+
+      let lastY = sizeLegendY + 10;
+      valuesToShow.forEach((val, i) => {
+          const r = radiusScale(val) * scaleFactor;
+          const cy = lastY + r;
+          const cx = 37;
+
+          legend.append('circle')
+              .attr('cx', cx)
+              .attr('cy', cy)
+              .attr('r', r)
+              .attr('fill', '#999')
+              .attr('fill-opacity', 0.3)
+              .attr('stroke', '#333')
+              .attr('stroke-width', 0.5);
+
+          legend.append('line')
+              .attr('x1', cx + r)
+              .attr('x2', cx + 35)
+              .attr('y1', cy)
+              .attr('y2', cy)
+              .attr('stroke', '#333')
+              .attr('stroke-width', 0.5)
+              .attr('stroke-dasharray', '2,2');
+
+          legend.append('text')
+              .attr('x', cx + 40)
+              .attr('y', cy + 4)
+              .style('font-size', '11px')
+              .text(`${val.toLocaleString()} cases`);
+
+          lastY = cy + r + 5;
+      });
+
+  // --- HISTORICAL LEGEND ---
+  } else if (state.selectedMapType === 'historical') {
+      // COLOR LEGEND
+      legend.append('text')
+          .attr('x', 25)
+          .attr('y', -8)
+          .style('font-weight', 'bold')
+          .style('font-size', '12px')
+          .text('Disease');
+
+      const historicalDiseases = ['Measles', 'Mumps', 'Polio', 'Whooping Cough', 'Diphtheria'];
+
+      historicalDiseases.forEach((disease, i) => {
+          const yPos = 5 + (i * 18);
+
+          legend.append('circle')
+              .attr('cx', 30)
+              .attr('cy', yPos)
+              .attr('r', 6)
+              .attr('fill', diseaseColor(disease.toLowerCase()))
+              .attr('fill-opacity', 0.7)
+              .attr('stroke', '#333')
+              .attr('stroke-width', 0.5);
+
+          legend.append('text')
+              .attr('x', 42)
+              .attr('y', yPos + 4)
+              .style('font-size', '11px')
+              .text(disease);
+      });
+
+      // SIZE LEGEND
+      legend.append('text')
+          .attr('x', 25)
+          .attr('y', 110)
+          .style('font-weight', 'bold')
+          .style('font-size', '12px')
+          .text('Annual Cases');
+
+      let filtered = historicalData.filter(d => +d.year === +state.selectedDate);
+      if (state.selectedDisease !== 'Total') {
+          filtered = filtered.filter(d => d.disease === state.selectedDisease);
+      }
+
+      if (filtered.length > 0) {
+          const maxCases = d3.max(filtered, d => +d.cases);
+          // Define the scale for historical data locally
+          const historicalRadiusScale = d3.scaleSqrt()
+              .domain([0, maxCases])
+              .range([0, 25]);
+
+          const valuesToShow = [1000, 10000, 100000];
+          
+          let lastY = 120;
+          valuesToShow.forEach((val, i) => {
+              const r = historicalRadiusScale(val);
+              const cy = lastY + r;
+              const cx = 45;
+
+              legend.append('circle')
+                  .attr('cx', cx)
+                  .attr('cy', cy)
+                  .attr('r', r)
+                  .attr('fill', '#999')
+                  .attr('fill-opacity', 0.3)
+                  .attr('stroke', '#333')
+                  .attr('stroke-width', 0.5);
+
+              legend.append('line')
+                  .attr('x1', cx + r)
+                  .attr('x2', cx + 35)
+                  .attr('y1', cy)
+                  .attr('y2', cy)
+                  .attr('stroke', '#333')
+                  .attr('stroke-width', 0.5)
+                  .attr('stroke-dasharray', '2,2');
+
+              legend.append('text')
+                  .attr('x', cx + 40)
+                  .attr('y', cy + 4)
+                  .style('font-size', '11px')
+                  .text(val.toLocaleString());
+
+              lastY = cy + r + 5;
+          });
+      }
+  }
+}*/
+
+function makeLegend() {
+  const padding = 15;
+  const legendPadding = 20;
+
+  // Clear any existing legend
+  svgLegend.select('#legend').remove();
+
+  const legend = svgLegend.append('g').attr('id', 'legend');
+  legend.attr('transform', `translate(${legendPadding}, ${height - 180 - legendPadding})`);
+
+  // --- REALTIME LEGEND ---
+  if (state.selectedMapType === 'realtime') {
+      // COLOR LEGEND
+      let colorLegendY = 0;
+
+      legend.append('text')
+          .attr('x', 25)
+          .attr('y', colorLegendY - 75)
+          .style('font-weight', 'bold')
+          .style('font-size', '12px')
+          .text('Disease');
+
+      const diseases = ['Chicken Pox', 'Diphtheria', 'Hepatitis A', 'Hepatitis B', 'Measles', 'Mumps', 'Polio', 'RSV', 'Whooping Cough'];
+      const diseaseLabels = {
+          'Chicken Pox': 'Chicken Pox',
+          'Diphtheria': 'Diphtheria',
+          'Hepatitis A': 'Hepatitis A',
+          'Hepatitis B': 'Hepatitis B',
+          'Measles': 'Measles',
+          'Mumps': 'Mumps',
+          'Polio': 'Polio',
+          'RSV': 'RSV',
+          'Whooping Cough': 'Whooping Cough'
+      };
+
+      diseases.forEach((disease, i) => {
+          const yPos = colorLegendY - 60 + (i * 18);
+
+          legend.append('circle')
+              .attr('cx', 30)
+              .attr('cy', yPos)
+              .attr('r', 6)
+              .attr('fill', diseaseColor(disease.toLowerCase()))
+              .attr('fill-opacity', 0.7)
+              .attr('stroke', '#333')
+              .attr('stroke-width', 0.5);
+
+          legend.append('text')
+              .attr('x', 42)
+              .attr('y', yPos + 4)
+              .style('font-size', '11px')
+              .text(diseaseLabels[disease]);
+      });
+
+      // SIZE LEGEND
+      const sizeLegendY = colorLegendY + 120;
+
+      legend.append('text')
+          .attr('x', 25)
+          .attr('y', sizeLegendY)
+          .style('font-weight', 'bold')
+          .style('font-size', '12px')
+          .text('Outbreak Size');
+
+      const valuesToShow = [10, 100, 1000];
+      const scaleFactor = 1.2;
+
+      let lastY = sizeLegendY + 10;
+      valuesToShow.forEach((val, i) => {
+          const r = radiusScale(val) * scaleFactor;
+          const cy = lastY + r;
+          const cx = 37;
+
+          legend.append('circle')
+              .attr('cx', cx)
+              .attr('cy', cy)
+              .attr('r', r)
+              .attr('fill', '#999')
+              .attr('fill-opacity', 0.3)
+              .attr('stroke', '#333')
+              .attr('stroke-width', 0.5);
+
+          legend.append('line')
+              .attr('x1', cx + r)
+              .attr('x2', cx + 35)
+              .attr('y1', cy)
+              .attr('y2', cy)
+              .attr('stroke', '#333')
+              .attr('stroke-width', 0.5)
+              .attr('stroke-dasharray', '2,2');
+
+          legend.append('text')
+              .attr('x', cx + 40)
+              .attr('y', cy + 4)
+              .style('font-size', '11px')
+              .text(`${val.toLocaleString()} cases`);
+
+          lastY = cy + r + 5;
+      });
+
+  // --- HISTORICAL LEGEND ---
+  } else if (state.selectedMapType === 'historical') {
+      // COLOR LEGEND
+      legend.append('text')
+          .attr('x', 25)
+          .attr('y', -8)
+          .style('font-weight', 'bold')
+          .style('font-size', '12px')
+          .text('Disease');
+
+      const historicalDiseases = ['Measles', 'Mumps', 'Polio', 'Whooping Cough', 'Diphtheria'];
+
+      historicalDiseases.forEach((disease, i) => {
+          const yPos = 5 + (i * 18);
+
+          legend.append('circle')
+              .attr('cx', 30)
+              .attr('cy', yPos)
+              .attr('r', 6)
+              .attr('fill', diseaseColor(disease.toLowerCase()))
+              .attr('fill-opacity', 0.7)
+              .attr('stroke', '#333')
+              .attr('stroke-width', 0.5);
+
+          legend.append('text')
+              .attr('x', 42)
+              .attr('y', yPos + 4)
+              .style('font-size', '11px')
+              .text(disease);
+      });
+
+      // SIZE LEGEND - FIXED to use disease-specific max
+      legend.append('text')
+          .attr('x', 25)
+          .attr('y', 110)
+          .style('font-weight', 'bold')
+          .style('font-size', '12px')
+          .text('Annual Cases');
+
+      // FIXED: Use disease-specific max for legend consistency
+      // Use single scale for all historical diseases  
+const maxCases = historicalOverallMax;
+
+      if (maxCases > 0) {
+          // Define the scale for historical data locally using disease-specific max
+          const historicalRadiusScale = d3.scaleSqrt()
+              .domain([0, maxCases])
+              .range([0, 25]);
+
+          const valuesToShow = [1000, 10000, 100000];
+          
+          let lastY = 120;
+          valuesToShow.forEach((val, i) => {
+              const r = historicalRadiusScale(val);
+              const cy = lastY + r;
+              const cx = 45;
+
+              legend.append('circle')
+                  .attr('cx', cx)
+                  .attr('cy', cy)
+                  .attr('r', r)
+                  .attr('fill', '#999')
+                  .attr('fill-opacity', 0.3)
+                  .attr('stroke', '#333')
+                  .attr('stroke-width', 0.5);
+
+              legend.append('line')
+                  .attr('x1', cx + r)
+                  .attr('x2', cx + 35)
+                  .attr('y1', cy)
+                  .attr('y2', cy)
+                  .attr('stroke', '#333')
+                  .attr('stroke-width', 0.5)
+                  .attr('stroke-dasharray', '2,2');
+
+              legend.append('text')
+                  .attr('x', cx + 40)
+                  .attr('y', cy + 4)
+                  .style('font-size', '11px')
+                  .text(val.toLocaleString());
+
+              lastY = cy + r + 5;
+          });
+      }
+  }
 }
+
 choices1.passedElement.element.addEventListener('change', function(event) {
   let selectedDisease = choices1.getValue().value;
   state.selectedDisease = selectedDisease; 
@@ -1263,23 +1631,28 @@ choices1.passedElement.element.addEventListener('change', function(event) {
 choices2.passedElement.element.addEventListener('change', function(event) {
   let selectedType = choices2.getValue().value;
   console.log('Type dropdown changed to:', selectedType);
-  
   state.selectedMapType = selectedType;
   
   if (selectedType === 'historical') {
     state.selectedDisease = 'Measles';
-    state.selectedDate = '2023'; 
+    state.selectedDate = '2024'; 
+    let historicalOptions = ['Measles', 'Mumps', 'Polio', 'Whooping Cough', 'Diphtheria']
+      .map(x => ({value: x, label: nameLookup[x]}));
+    choices1.clearStore();
+    choices1.setChoices(historicalOptions);
     choices1.setChoiceByValue('Measles');
-    console.log('Switched to historical mode');
-  } else {
-    state.selectedDisease = 'Total';
+} else {
+    // Reset to full list for realtime
+    state.selectedDisease = 'Total'; 
+    choices1.clearStore();
+    choices1.setChoices(options1);
     choices1.setChoiceByValue('Total');
-    console.log('Switched to realtime mode');
-  }
+}
   
   // Make sure to call makeSlider before updateMap
   setTimeout(() => {
     makeSlider();
+    updateMap();
   }, 50);
   
 }, false);
