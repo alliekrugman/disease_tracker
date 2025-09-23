@@ -304,7 +304,7 @@ var diseaseColor = d3.scaleOrdinal()
   ]);
 
 svg.append('image')
-.attr("href", "../../global_energy_tracker_map/tgh_logo.png")
+.attr("href", "tgh_logo.png")
 .attr('x', width - 120) // Adjust based on logo width
 .attr('y', height - 60) // Adjust based on logo height  
 .attr('width', 100) // Adjust to your logo size
