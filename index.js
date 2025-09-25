@@ -15,7 +15,7 @@ const d3 = Object.assign({}, require('d3-shape'), require('d3-format'), require(
 require('webpack-jquery-ui') //slider?
 require('jquery-ui-touch-punch') // touch support
 
-var realtimeData = require('./data/realtime.csv');
+var realtimeData = require('./data/realtime_20250925_1.csv');
 var historicalData = require('./data/combined_data.csv');
 
 let historicalSliderValues = [...new Set(
@@ -288,28 +288,29 @@ group.append('g')
 
 var radiusScale = d3.scaleSqrt()
   .domain([0, d3.max(realtimeData, d => +d.cases)])
-  .range([0, 50]); 
+  .range([7, 70]); 
   
 var diseaseColor = d3.scaleOrdinal()
   .domain(['Measles', 'Mumps', 'Chicken Pox', 'Polio', 'Whooping Cough', 'RSV', 'Diptheria', 'Hepatitis A', "Hepatitis B"])
-  .range(['#F56647',  // red/orange
-  '#efd952',  // yellow
+  .range(['#efd952',  // red/orange
+  '#F56647',  // yellow
   '#0C3F42',  // dark green
   '#04284A',  // dark blue
-  '#c6ddf4',  // sky blue
-  '#F2F5F7',  // very light blue
+  '#6ba3e2',  // sky blue
+  '#aebcc7',  // very light blue
   '#7A8CA0',  // lighter blue/indigo
-  '#E1DCD6',   // neutral/light gray-beige
+  '#ae9c84',   // neutral/light gray-beige
   '#dbb9e6'  // violet/lavender
   ]);
 
+// If your HTML file is in the same directory as global_energy_tracker_map folder:
 svg.append('image')
-.attr("href", "tgh_logo.png")
-.attr('x', width - 120) // Adjust based on logo width
-.attr('y', height - 60) // Adjust based on logo height  
-.attr('width', 100) // Adjust to your logo size
-.attr('height', 40) // Adjust to your logo size
-.style('pointer-events', 'none');
+  .attr("href", "https://raw.githubusercontent.com/alliekrugman/disease_tracker/main/global_energy_tracker_map/tgh_logo.png")
+  .attr('x', width - 120) // Adjust based on logo width
+  .attr('y', height - 60) // Adjust based on logo height  
+  .attr('width', 100) // Adjust to your logo size
+  .attr('height', 40) // Adjust to your logo size
+  .style('pointer-events', 'none');
 
 state.selectedMapType = 'realtime';
 state.selectedDisease = 'Total';
@@ -321,7 +322,7 @@ function updateMap() {
     console.log('updateMap called - Mode:', state.selectedMapType, 'Disease:', state.selectedDisease, 'Date:', state.selectedDate);
     // Remove all circles first
     symbolLayer.selectAll('circle').remove();
-    
+
     // Reset all countries to default color and clear event handlers
     countryFill
       .attr('fill', '#f0f0f0')
@@ -348,29 +349,39 @@ function updateMap() {
 
       let stickyTooltip = null;
 
+
       symbolLayer.selectAll('circle')
-     
-  .data(validCoords)
-  .enter()
-  .append('circle')
-  .attr('cx', d => {
-    const coords = projection([+d.lng, +d.lat]);
-    return coords[0];
-  })
-  .attr('cy', d => projection([+d.lng, +d.lat])[1])
-  .attr("r", d => radiusScale(+d.cases))
-  .attr('fill', d => diseaseColor(d.diseases.toLowerCase()))
-  .attr('fill-opacity', 0.7)
-  .attr('stroke', '#333')
-  .attr('stroke-width', .5)
+      .data(validCoords)
+      .enter()
+      .append('circle')
+      .attr('cx', d => {
+        const coords = projection([+d.lng, +d.lat]);
+        return coords[0];
+      })
+      .attr('cy', d => projection([+d.lng, +d.lat])[1])
+      .attr("r", d => radiusScale(+d.cases))
+      .attr('fill', d => (+d.cases === 0) ? '#f5f5f5' : diseaseColor(d.diseases.toLowerCase()))
+      .attr('fill-opacity', d => (+d.cases === 0) ? 0 : 0.7) // No opacity for 0 cases
+      .attr('stroke', '#333')
+      .attr('stroke-width', d => (+d.cases === 0) ? 1 : .1) // Thicker stroke for empty circles
+
   .on('mouseover', function(d) {
-    if (stickyTooltip === this) return;
-    
-    d3.select(this)
-      .transition()
-      .duration(100)
-      .attr('stroke', '#000')                
-      .attr('stroke-width', 1);
+  if (stickyTooltip === this) return;
+  
+  function casesText(count) {
+    if (+count === 0) return 'Case count not specified'; // Changed message
+    return count == 1 ? '1 case' : `${count} cases`;
+  }
+
+  const cases = casesText(d.cases);
+  const casesDisplay = cases ? ` | ${cases}` : '';
+
+  d3.select(this)
+    .transition()
+    .duration(100)
+    .attr('stroke', '#000')                
+    .attr('stroke-width', 1);
+
 
       function getFirstSentence(text) {
         if (!text) return '';
@@ -439,35 +450,33 @@ function updateMap() {
         return uniqueParts.join(', ');
       }
 
-      function casesText(count) {
-        return count == 1 ? '1 case' : `${count} cases`;
-      }
-
       const tooltipHTML = `<div class="font-lb" style="color:#4B535D;padding-bottom:8px;font-weight:bold;">
-      ${fixEncoding(d.place_name)}</div>
-      <div style="margin-bottom:8px;">
-      <strong><i>${formatDate(d.date)}</strong> | ${casesText(d.cases)}</i></div>
-      <div>${fixEncoding(getFirstSentence(d.summary))} <a href="${d.link}" target="_blank" style="pointer-events: all; z-index: 10000;">Read more</a></div>`;
+  ${fixEncoding(d.place_name)}</div>
+  <div style="margin-bottom:8px;">
+  <strong><i>${formatDate(d.date)}</strong>${casesDisplay}</i></div>
+  <div>${fixEncoding(getFirstSentence(d.summary))} <a href="${d.link}" target="_blank" style="pointer-events: all; z-index: 10000;">Read more</a></div>`;
+    
         
     mtooltip
       .html(tooltipHTML)
       .style('position', 'absolute')
       .style('display', 'inline-block')
-      .on('click', function() {
+      .on('click', function(d) {
         d3.event.stopPropagation(); // Prevent click from bubbling to circle
       });
 
     handleMouseMove(d);
   })
   .on('mouseout', function(d) {
-    // Don't hide tooltip if it's sticky
+    const cases = (+d.cases === 0) ? '' : `${d.cases} cases`;
+    const casesDisplay = cases ? ` | ${cases}` : '';
     if (stickyTooltip === this) return;
     
     d3.select(this).classed('highlight', false)
-      .transition()
-      .duration(100)
-      .attr('stroke', '#333')
-      .attr('stroke-width', .5);
+    .transition()
+    .duration(100)
+    .attr('stroke', '#333')
+    .attr('stroke-width', d => (+d.cases === 0) ? 1 : .1);
     
     mtooltip.style('display', 'none');
   })
@@ -509,11 +518,12 @@ function updateMap() {
         .attr('stroke', '#000')
         .attr('stroke-width', 2); // Slightly thicker border for sticky state
 
-      const tooltipHTML = `<div class="font-lb" style="color:#4B535D;padding-bottom:8px;font-weight:bold;">
-      ${d.place_name}</div>
-      <div style="margin-bottom:8px;">
-      <strong><i>${formatDate(d.date)}</strong> | ${d.cases} cases</i></div>
-      <div><a href="${d.link}" target="_blank" style="pointer-events: all; z-index: 10000;">Read more:</a> ${d.summary}</div>`;
+        const tooltipHTML = `<div class="font-lb" style="color:#4B535D;padding-bottom:8px;font-weight:bold;">
+        ${d.place_name}</div>
+        <div style="margin-bottom:8px;">
+        <strong><i>${formatDate(d.date)}</strong>${casesDisplay}</i></div>
+        <div><a href="${d.link}" target="_blank" style="pointer-events: all; z-index: 10000;">Read more:</a> ${d.summary}</div>`;
+      
 
       mtooltip
         .html(tooltipHTML)
@@ -566,7 +576,7 @@ d3.select('body').on('click', function() {
           // Create radius scale for historical data (yearly cases are typically larger)
           const historicalRadiusScale = d3.scaleSqrt()
             .domain([0, maxCases])
-            .range([0, 25]); // Larger max radius and minimum radius for better visibility
+            .range([0, 75]); // Larger max radius and minimum radius for better visibility
           
           // Create lookup for country centroids (you'll need to add country center coordinates)
           const countryCentroids = {
@@ -861,6 +871,9 @@ d3.select('body').on('click', function() {
     }
 
 //tooltips
+d3.select('body') // or select a specific container div
+  .append('div')
+  .html(footer);
 
 function findRectangularQuadrant (x, y, width, height) {
   var vertical = '';
@@ -1433,7 +1446,7 @@ function makeLegend() {
       }
   }
 }*/
-
+/*
 function makeLegend() {
   const padding = 15;
   const legendPadding = 20;
@@ -1443,6 +1456,10 @@ function makeLegend() {
 
   const legend = svgLegend.append('g').attr('id', 'legend');
   legend.attr('transform', `translate(${legendPadding}, ${height - 180 - legendPadding})`);
+
+  const legendRadiusScale = d3.scaleSqrt()
+  .domain([0, d3.max(realtimeData, d => +d.cases)])
+  .range([7, 70]);
 
   // --- REALTIME LEGEND ---
   if (state.selectedMapType === 'realtime') {
@@ -1498,12 +1515,11 @@ function makeLegend() {
           .style('font-size', '12px')
           .text('Outbreak Size');
 
-      const valuesToShow = [10, 100, 1000];
-      const scaleFactor = 1.2;
+      const valuesToShow = [10, 10000];
 
       let lastY = sizeLegendY + 10;
       valuesToShow.forEach((val, i) => {
-          const r = radiusScale(val) * scaleFactor;
+          const r = legendRadiusScale(val); // Use the matching scale, no scaleFactor
           const cy = lastY + r;
           const cx = 37;
 
@@ -1581,11 +1597,199 @@ const maxCases = historicalOverallMax;
           // Define the scale for historical data locally using disease-specific max
           const historicalRadiusScale = d3.scaleSqrt()
               .domain([0, maxCases])
-              .range([0, 25]);
+              .range([0, 50]);
 
-          const valuesToShow = [1000, 10000, 100000];
+          const valuesToShow = [1000, 100000];
           
           let lastY = 120;
+          valuesToShow.forEach((val, i) => {
+              const r = historicalRadiusScale(val);
+              const cy = lastY + r;
+              const cx = 45;
+
+              legend.append('circle')
+                  .attr('cx', cx)
+                  .attr('cy', cy)
+                  .attr('r', r)
+                  .attr('fill', '#999')
+                  .attr('fill-opacity', 0.3)
+                  .attr('stroke', '#333')
+                  .attr('stroke-width', 0.5);
+
+              legend.append('line')
+                  .attr('x1', cx + r)
+                  .attr('x2', cx + 35)
+                  .attr('y1', cy)
+                  .attr('y2', cy)
+                  .attr('stroke', '#333')
+                  .attr('stroke-width', 0.5)
+                  .attr('stroke-dasharray', '2,2');
+
+              legend.append('text')
+                  .attr('x', cx + 40)
+                  .attr('y', cy + 4)
+                  .style('font-size', '11px')
+                  .text(val.toLocaleString());
+
+              lastY = cy + r + 5;
+          });
+      }
+  }
+}*/
+
+function makeLegend() {
+  const padding = 15;
+  const legendPadding = 20;
+
+  // Clear any existing legend
+  svgLegend.select('#legend').remove();
+
+  const legend = svgLegend.append('g').attr('id', 'legend');
+  // CHANGED: Move the entire legend up by increasing the offset
+  legend.attr('transform', `translate(${legendPadding}, ${height - 180 - legendPadding})`); // Changed from 280 to 255 (moves down 25px)
+
+  const legendRadiusScale = d3.scaleSqrt()
+  .domain([0, d3.max(realtimeData, d => +d.cases)])
+  .range([7, 70]);
+
+  // --- REALTIME LEGEND ---
+  if (state.selectedMapType === 'realtime') {
+      // COLOR LEGEND - moved up
+      let colorLegendY = -50; // CHANGED: Start higher up (was 0)
+
+      legend.append('text')
+          .attr('x', 25)
+          .attr('y', colorLegendY - 75) // This will now be -125
+          .style('font-weight', 'bold')
+          .style('font-size', '12px')
+          .text('Disease');
+
+      const diseases = ['Chicken Pox', 'Diphtheria', 'Hepatitis A', 'Hepatitis B', 'Measles', 'Mumps', 'Polio', 'RSV', 'Whooping Cough'];
+      const diseaseLabels = {
+          'Chicken Pox': 'Chicken Pox',
+          'Diphtheria': 'Diphtheria',
+          'Hepatitis A': 'Hepatitis A',
+          'Hepatitis B': 'Hepatitis B',
+          'Measles': 'Measles',
+          'Mumps': 'Mumps',
+          'Polio': 'Polio',
+          'RSV': 'RSV',
+          'Whooping Cough': 'Whooping Cough'
+      };
+
+      diseases.forEach((disease, i) => {
+          const yPos = colorLegendY - 60 + (i * 18);
+
+          legend.append('circle')
+              .attr('cx', 30)
+              .attr('cy', yPos)
+              .attr('r', 6)
+              .attr('fill', diseaseColor(disease.toLowerCase()))
+              .attr('fill-opacity', 0.7)
+              .attr('stroke', '#333')
+              .attr('stroke-width', 0.5);
+
+          legend.append('text')
+              .attr('x', 42)
+              .attr('y', yPos + 4)
+              .style('font-size', '11px')
+              .text(diseaseLabels[disease]);
+      });
+
+      // SIZE LEGEND - keeps same spacing relative to color legend
+      const sizeLegendY = colorLegendY + 120; // Same relative positioning
+
+      legend.append('text')
+          .attr('x', 25)
+          .attr('y', sizeLegendY)
+          .style('font-weight', 'bold')
+          .style('font-size', '12px')
+          .text('Outbreak Size');
+
+      const valuesToShow = [10, 10000];
+
+      let lastY = sizeLegendY + 10;
+      valuesToShow.forEach((val, i) => {
+          const r = legendRadiusScale(val);
+          const cy = lastY + r;
+          const cx = 37;
+
+          legend.append('circle')
+              .attr('cx', cx)
+              .attr('cy', cy)
+              .attr('r', r)
+              .attr('fill', '#999')
+              .attr('fill-opacity', 0.3)
+              .attr('stroke', '#333')
+              .attr('stroke-width', 0.5);
+
+          legend.append('line')
+              .attr('x1', cx + r)
+              .attr('x2', cx + 35)
+              .attr('y1', cy)
+              .attr('y2', cy)
+              .attr('stroke', '#333')
+              .attr('stroke-width', 0.5)
+              .attr('stroke-dasharray', '2,2');
+
+          legend.append('text')
+              .attr('x', cx + 40)
+              .attr('y', cy + 4)
+              .style('font-size', '11px')
+              .text(`${val.toLocaleString()} cases`);
+
+          lastY = cy + r + 5;
+      });
+
+  // --- HISTORICAL LEGEND ---
+  } else if (state.selectedMapType === 'historical') {
+      // COLOR LEGEND - also moved up
+      legend.append('text')
+          .attr('x', 25)
+          .attr('y', -58) // CHANGED: moved up (was -8)
+          .style('font-weight', 'bold')
+          .style('font-size', '12px')
+          .text('Disease');
+
+      const historicalDiseases = ['Measles', 'Mumps', 'Polio', 'Whooping Cough', 'Diphtheria'];
+
+      historicalDiseases.forEach((disease, i) => {
+          const yPos = -45 + (i * 18); // CHANGED: moved up (was 5)
+
+          legend.append('circle')
+              .attr('cx', 30)
+              .attr('cy', yPos)
+              .attr('r', 6)
+              .attr('fill', diseaseColor(disease.toLowerCase()))
+              .attr('fill-opacity', 0.7)
+              .attr('stroke', '#333')
+              .attr('stroke-width', 0.5);
+
+          legend.append('text')
+              .attr('x', 42)
+              .attr('y', yPos + 4)
+              .style('font-size', '11px')
+              .text(disease);
+      });
+
+      // SIZE LEGEND - moved up
+      legend.append('text')
+          .attr('x', 25)
+          .attr('y', 60) // CHANGED: moved up (was 110)
+          .style('font-weight', 'bold')
+          .style('font-size', '12px')
+          .text('Annual Cases');
+
+      const maxCases = historicalOverallMax;
+
+      if (maxCases > 0) {
+          const historicalRadiusScale = d3.scaleSqrt()
+              .domain([0, maxCases])
+              .range([0, 75]);
+
+          const valuesToShow = [1000, 100000];
+          
+          let lastY = 70; // CHANGED: moved up (was 120)
           valuesToShow.forEach((val, i) => {
               const r = historicalRadiusScale(val);
               const cy = lastY + r;
