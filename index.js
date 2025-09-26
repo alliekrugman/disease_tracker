@@ -36,7 +36,7 @@ let project = 'global_energy_tracker_map'
 
 let countryFill = ''
 let title = ''
-let note = ''
+let note = 'Realtime alerts are sourced from news and official sources, reviewed by Promed staff. Associated case counts are approximate based on alert content and cover different time periods. Open circles denote alerts where no case count is available. Yearly historical alerts are from the World Health Organization.<br><br>Map: CFR/Allison Krugman • Source: Promed, WHO Joint Reporting Form'
 let sources = ''
 let source = ''
 let subtitle = ''
@@ -57,20 +57,20 @@ let chart1 = `
 </div>`
 
 let footer = `
-        <div class='v-footer'>
-            <div>
-            <div id='note' class='v-annotation'>${note}</div>
-            <div class='src' style='float:left'>
-                <span class='v-source'>
-                  <span id='psource' class='v-source'>${sources}</span> :
-                    <span id='vsource' class='v-source'>
-                      ${source}
+    <div class='v-footer' style='font-family: larsseit_regular !important; letter-spacing: 0.5px; color: #999;'>
+        <div style='font-family: inherit; color: inherit;'>
+            <div id='note' class='v-annotation' style='font-family: inherit; color: inherit !important;'>${note}</div>
+            <div style='display: flex; justify-content: space-between; align-items: center; position: relative; font-family: inherit;'>
+                <div class='src' style='font-family: inherit; color: inherit !important;'>
+                    <span class='v-source' style='font-family: inherit; color: inherit !important;'>
+                        <span id='psource' class='v-source' style='font-family: inherit; color: inherit !important;'>${sources}</span> : 
+                        <span id='vsource' class='v-source' style='font-family: inherit; color: inherit !important;'>${source}</span>
                     </span>
-                </span>
+                </div>
+                <div class='v-logo-brown' style='background-image: url(https://raw.githubusercontent.com/alliekrugman/disease_tracker/main/global_energy_tracker_map/tgh_logo.png); width: 101px; height: 10px; background-size: 101px 10px;'></div>
             </div>
-            <div class='v-logo-brown' style='position:relative;bottom:0;right:0;margin-top:4px;'></div>
         </div>
-    </div>`
+    </div>`;
 
 let graphic = `
 <div class='vallenato' style='max-width:994px'>
@@ -250,6 +250,8 @@ const svg = d3.select(`#v-${project}`).append('svg')
   //.on('wheel.zoom', null)
   //.on('dblclick.zoom', null);
 
+d3.select(`#v-${project}`).append('div').html(footer);
+
 let group = svg.append('g')
 
  countryFill = group.append('g')
@@ -303,15 +305,6 @@ var diseaseColor = d3.scaleOrdinal()
   '#dbb9e6'  // violet/lavender
   ]);
 
-// If your HTML file is in the same directory as global_energy_tracker_map folder:
-svg.append('image')
-  .attr("href", "https://raw.githubusercontent.com/alliekrugman/disease_tracker/main/global_energy_tracker_map/tgh_logo.png")
-  .attr('x', width - 120) // Adjust based on logo width
-  .attr('y', height - 60) // Adjust based on logo height  
-  .attr('width', 100) // Adjust to your logo size
-  .attr('height', 40) // Adjust to your logo size
-  .style('pointer-events', 'none');
-
 state.selectedMapType = 'realtime';
 state.selectedDisease = 'Total';
 
@@ -351,19 +344,19 @@ function updateMap() {
 
 
       symbolLayer.selectAll('circle')
-      .data(validCoords)
-      .enter()
-      .append('circle')
-      .attr('cx', d => {
-        const coords = projection([+d.lng, +d.lat]);
-        return coords[0];
-      })
-      .attr('cy', d => projection([+d.lng, +d.lat])[1])
-      .attr("r", d => radiusScale(+d.cases))
-      .attr('fill', d => (+d.cases === 0) ? '#f5f5f5' : diseaseColor(d.diseases.toLowerCase()))
-      .attr('fill-opacity', d => (+d.cases === 0) ? 0 : 0.7) // No opacity for 0 cases
-      .attr('stroke', '#333')
-      .attr('stroke-width', d => (+d.cases === 0) ? 1 : .1) // Thicker stroke for empty circles
+  .data(validCoords)
+  .enter()
+  .append('circle')
+  .attr('cx', d => {
+    const coords = projection([+d.lng, +d.lat]);
+    return coords[0];
+  })
+  .attr('cy', d => projection([+d.lng, +d.lat])[1])
+  .attr("r", d => radiusScale(+d.cases))
+  .attr('fill', d => (+d.cases === 0) ? 'none' : diseaseColor(d.diseases.toLowerCase()))
+  .attr('fill-opacity', d => (+d.cases === 0) ? 0 : 0.7)
+  .attr('stroke', d => (+d.cases === 0) ? diseaseColor(d.diseases.toLowerCase()) : '#333') // Disease color for 0 cases
+  .attr('stroke-width', d => (+d.cases === 0) ? 2 : 0.1) // Thicker stroke for visibility
 
   .on('mouseover', function(d) {
   if (stickyTooltip === this) return;
@@ -842,7 +835,7 @@ d3.select('body').on('click', function() {
             .attr('fill', d => diseaseColor(d.disease.toLowerCase()))
             .attr('fill-opacity', 0.7)
             .attr('stroke', '#333')
-            .attr('stroke-width', .5)
+            .attr('stroke-width', .1)
             .on('mouseover', function(d) {
               const countryName = countryLookup[d.iso] || d.iso;
               const tooltipHTML = `<div class="font-lb" style="color:#4B535D;padding-bottom:5px">
@@ -869,11 +862,6 @@ d3.select('body').on('click', function() {
       }
       makeLegend();
     }
-
-//tooltips
-d3.select('body') // or select a specific container div
-  .append('div')
-  .html(footer);
 
 function findRectangularQuadrant (x, y, width, height) {
   var vertical = '';
@@ -956,18 +944,22 @@ function formatMonthLabel(dateString) {
 
 const realtimeSliderValues = [...new Set(
   realtimeData.map(d => getMonthFormatted(d.date))
-)].sort((a, b) => new Date(a) - new Date(b));
+)].sort((a, b) => {
+  // Convert back to dates for proper chronological sorting
+  const dateA = new Date(a);
+  const dateB = new Date(b);
+  return dateA - dateB;
+});
 
 function getMonthFormatted(dateString) {
   const date = new Date(dateString);
   if (isNaN(date)) return null; // defensive check for bad input
-
-  // Set to first day of the month
-  date.setDate(1);
-
-  const mm = date.getMonth() + 1;
-  const yyyy = date.getFullYear();
-  return `${mm}-1-${yyyy}`; // e.g. "5-1-2025"
+  
+  // Return formatted month name and year
+  return date.toLocaleDateString('en-US', { 
+    month: 'long', 
+    year: 'numeric' 
+  }); // defensive check for bad input
 
 /*const realtimeSliderValues = [...new Set(
   realtimeData.map(d => getWeekEndingDateFormatted(d.date))
@@ -1706,7 +1698,7 @@ function makeLegend() {
           .style('font-size', '12px')
           .text('Outbreak Size');
 
-      const valuesToShow = [10, 10000];
+      const valuesToShow = [10, 1000, 10000];
 
       let lastY = sizeLegendY + 10;
       valuesToShow.forEach((val, i) => {
@@ -1744,6 +1736,8 @@ function makeLegend() {
   // --- HISTORICAL LEGEND ---
   } else if (state.selectedMapType === 'historical') {
       // COLOR LEGEND - also moved up
+      legend.attr('transform', `translate(${legendPadding}, ${height - 200 - legendPadding})`); 
+      
       legend.append('text')
           .attr('x', 25)
           .attr('y', -58) // CHANGED: moved up (was -8)
@@ -1785,9 +1779,9 @@ function makeLegend() {
       if (maxCases > 0) {
           const historicalRadiusScale = d3.scaleSqrt()
               .domain([0, maxCases])
-              .range([0, 75]);
+              .range([7, 75]);
 
-          const valuesToShow = [1000, 100000];
+          const valuesToShow = [1000, 10000, 100000];
           
           let lastY = 70; // CHANGED: moved up (was 120)
           valuesToShow.forEach((val, i) => {

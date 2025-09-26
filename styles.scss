@@ -44,7 +44,7 @@ $font-le: "lemonde_regular", Helvetica, Verdana, sans-serif;
   letter-spacing: 0px !important;
   background-color: white;
   position:relative;
-  font-family: $font-l
+  font-family: 'larsseit_regular' !important;
 }
 
 #global_energy_tracker_map .tool {
@@ -78,7 +78,7 @@ $font-le: "lemonde_regular", Helvetica, Verdana, sans-serif;
 #global_energy_tracker_map .text-anchor-middle .annotation-note-title{
   text-anchor: middle !important;
   font-size: 14px;
-  @apply font-l;
+  /*@apply font-l;*/
 }
 
 
@@ -191,7 +191,7 @@ $font-le: "lemonde_regular", Helvetica, Verdana, sans-serif;
 #global_energy_tracker_map .vallenato .v-footer{
   margin-top: 0px !important;
   position: absolute !important;
-  bottom: 0px !important;
+  bottom: -60px !important;
   padding-right:15px;
   pointer-events: none;
 }
@@ -208,15 +208,15 @@ $font-le: "lemonde_regular", Helvetica, Verdana, sans-serif;
   width: 100%;
 }
 
-#global_energy_tracker_map .vallenato .v-map-footer{
+/*#global_energy_tracker_map .vallenato .v-map-footer{
   // position: absolute;
   // bottom: 0;
-}
+}*/
 
-#global_energy_tracker_map .vallenato .v-map-note{
+/*#global_energy_tracker_map .vallenato .v-map-note{
   // position: absolute;
   // bottom: 45;
-}
+}*/
 
 #global_energy_tracker_map .vallenato .v-logo-brown {
   display: block;
@@ -224,8 +224,8 @@ $font-le: "lemonde_regular", Helvetica, Verdana, sans-serif;
   height: 30px;
   background-size: 62px 30px;
   position:absolute;
-  right:15px;
-  bottom:15px;
+  right:5px;
+  bottom: -45px;
 }
 /*gradient*/
 
@@ -304,7 +304,7 @@ $font-le: "lemonde_regular", Helvetica, Verdana, sans-serif;
   z-index: 49;
   position: relative;
   margin: 0 auto;
-  float:left;
+  /*float:left;*/
   padding-bottom: 15px;
   padding-right: 15px;
   width: 100%;
@@ -324,7 +324,7 @@ $font-le: "lemonde_regular", Helvetica, Verdana, sans-serif;
   cursor: pointer;
   font-family: $font-l;
   min-width: 109px;
-  float:left;
+  /*float:left;*/
   margin:0;
   padding-top: 12px;
 }
@@ -383,13 +383,13 @@ $font-le: "lemonde_regular", Helvetica, Verdana, sans-serif;
 #global_energy_tracker_map .v-majority-ownership .subject, #global_energy_tracker_map .v-majority-ownership tspan{
   fill-opacity: 1;
   fill: #BD3823 !important;
-  @apply font-l;
+  /*@apply font-l;*/
 }
 
 #global_energy_tracker_map .v-minority-ownership .subject, #global_energy_tracker_map .v-minority-ownership tspan{
   fill-opacity: 1;
   fill: #FF9382 !important;
-  @apply font-l;
+  /*@apply font-l;*/
 }
 
 #global_energy_tracker_map .lakes-borders{
@@ -507,11 +507,11 @@ $font-le: "lemonde_regular", Helvetica, Verdana, sans-serif;
   border-bottom: 0px;
 }
 
-#global_energy_tracker_map table.dataTable thead .sorting_asc,
+/*#global_energy_tracker_map table.dataTable thead .sorting_asc,
 #global_energy_tracker_map table.dataTable thead .sorting_-2,
  #global_energy_tracker_map table.dataTable thead .sorting {
 
- }
+ }*/
 
 #global_energy_tracker_map table.dataTable thead th.sorting:after,
 #global_energy_tracker_map table.dataTable thead th.sorting_asc:after,
@@ -625,15 +625,18 @@ overflow:hidden;
   border: 1px solid #c6c4c4;
 }
 
-#global_energy_tracker_map #slider-text{
+#global_energy_tracker_map #slider-text {
   position: relative;
   top: -20px;
   text-align: center;
   font-size: 13px !important;
   font-family: 'larsseit_regular' !important;
   left: -32px;
-  width: 75px !important;
+  width: auto !important; /* Change from 75px to auto */
+  min-width: 100px !important; /* Ensure minimum width */
+  white-space: nowrap !important; /* Prevent text wrapping */
   color: #4b535d !important;
+  overflow: visible !important; /* Allow text to extend beyond bounds */
 }
 
 #global_energy_tracker_map #custom-handle:focus{
