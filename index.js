@@ -15,7 +15,7 @@ const d3 = Object.assign({}, require('d3-shape'), require('d3-format'), require(
 require('webpack-jquery-ui') //slider?
 require('jquery-ui-touch-punch') // touch support
 
-var realtimeData = require('./data/realtime_20250925_1.csv');
+var realtimeData = require('./data/fixed.csv');
 var historicalData = require('./data/combined_data.csv');
 
 let historicalSliderValues = [...new Set(
@@ -353,8 +353,8 @@ function updateMap() {
   })
   .attr('cy', d => projection([+d.lng, +d.lat])[1])
   .attr("r", d => radiusScale(+d.cases))
-  .attr('fill', d => (+d.cases === 0) ? 'none' : diseaseColor(d.diseases.toLowerCase()))
-  .attr('fill-opacity', d => (+d.cases === 0) ? 0 : 0.7)
+  .attr('fill', d => (+d.cases === 0) ? "#F2F2F2" : diseaseColor(d.diseases.toLowerCase()))
+  .attr('fill-opacity', d => (+d.cases === 0) ? 0.1 : 0.7)
   .attr('stroke', d => (+d.cases === 0) ? diseaseColor(d.diseases.toLowerCase()) : '#333') // Disease color for 0 cases
   .attr('stroke-width', d => (+d.cases === 0) ? 2 : 0.1) // Thicker stroke for visibility
 
@@ -468,8 +468,10 @@ function updateMap() {
     d3.select(this).classed('highlight', false)
     .transition()
     .duration(100)
-    .attr('stroke', '#333')
-    .attr('stroke-width', d => (+d.cases === 0) ? 1 : .1);
+  .attr('fill', d => (+d.cases === 0) ? "#F2F2F2" : diseaseColor(d.diseases.toLowerCase()))
+  .attr('fill-opacity', d => (+d.cases === 0) ? 0.1 : 0.7)
+  .attr('stroke', d => (+d.cases === 0) ? diseaseColor(d.diseases.toLowerCase()) : '#333') // Disease color for 0 cases
+  .attr('stroke-width', d => (+d.cases === 0) ? 2 : 0.1)
     
     mtooltip.style('display', 'none');
   })
@@ -841,19 +843,25 @@ d3.select('body').on('click', function() {
               const tooltipHTML = `<div class="font-lb" style="color:#4B535D;padding-bottom:5px">
                   ${countryName}</div><br><div>Disease: ${d.disease}<br><br>Cases: ${(+d.cases).toLocaleString()}<br><br>Year: ${d.year}</div>`;
       
+            d3.select(this)
+            .transition()
+            .duration(100)
+            .attr('stroke', '#000')                
+            .attr('stroke-width', 1);
+
               mtooltip
                 .html(tooltipHTML)
                 .style('position', 'absolute')
                 .style('display', 'inline-block');
-      
-              handleMouseMove(d);
+              handleMouseMove(event, d);
             })
-            .on('mouseout', function(d) {
+
+            .on('mouseout', function(event, d) {
               d3.select(this).classed('highlight', false)
                 .transition()
                 .duration(100)
                 .attr('stroke', '#333')
-                .attr('stroke-width', .5);
+                .attr('stroke-width', .1);
               
               mtooltip.style('display', 'none');
             })
